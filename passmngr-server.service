@@ -1,8 +1,10 @@
 [Unit]
 Description=PassMNGR HTTP Server
-After=network.target
 
 [Service]
-Type=exec
+Type=simple
 ExecStart=/root/go/passmngr-server/main
 Restart=always
+
+[Install]
+WantedBy=multi-user.target
