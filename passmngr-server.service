@@ -1,8 +1,12 @@
 [Unit]
 Description=PassMNGR HTTP Server
+After=network.target
 
 [Service]
-Type=simple
+PIDFile=/tmp/passmnger-server.pid-4040
+User=root
+Group=root
+WorkingDirectory=/root/go/passmngr-server
 ExecStart=/root/go/passmngr-server/main
 Restart=always
 
