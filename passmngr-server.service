@@ -4,5 +4,5 @@ After=network.target
 
 [Service]
 Type=exec
-ExecStart=/bin/go /root/go/passmngr-server/main
+ExecStart=/root/go/passmngr-server/main
 Restart=always
