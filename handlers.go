@@ -7,16 +7,23 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+const (
+	period byte = byte('.')
+)
+
+// Route is the structure holding information and handlers for post routes
 type Route struct {
 	path     []byte
 	pathHash uint32
 	fn       func(*fasthttp.RequestCtx)
 }
 
+// NewRoute returns a new route structure
 func NewRoute(path []byte, fn func(*fasthttp.RequestCtx)) Route {
 	return Route{path, cityhash.Hash32(path), fn}
 }
 
+// AliasRoute is the structure holding information for a route alias
 type AliasRoute struct {
 	alias     []byte
 	aliasHash uint32
@@ -24,17 +31,12 @@ type AliasRoute struct {
 	pathHash  uint32
 }
 
+// NewAliasRoute creates a new alias route struct
 func NewAliasRoute(alias []byte, aliased []byte) AliasRoute {
 	return AliasRoute{alias, cityhash.Hash32(alias), aliased, cityhash.Hash32(aliased)}
 }
 
-// RouteClosure creates a closure to "bind" one argument to a function
-func RouteClosure(f func([]Route, *fasthttp.RequestCtx), r []Route) func(*fasthttp.RequestCtx) {
-	return func(ctx *fasthttp.RequestCtx) {
-		f(r, ctx)
-	}
-}
-
+// NewPrimaryHandler returns a new request handler with the appropriate function signature
 func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*fasthttp.RequestCtx) {
 	fs := &fasthttp.FS{
 		Root:                 root,
@@ -54,7 +56,7 @@ func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*f
 }
 
 // PrimaryHandler is the function that will handle every http request
-func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fshandler func(*fasthttp.RequestCtx), ctx *fasthttp.RequestCtx) {
+func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fsHandler func(*fasthttp.RequestCtx), ctx *fasthttp.RequestCtx) {
 	path := ctx.Path()
 	pathHash := cityhash.Hash32(path)
 
@@ -62,6 +64,7 @@ func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fshandler func(*fa
 		if r.aliasHash == pathHash && bytes.Equal(r.alias, path) {
 			path = r.path
 			pathHash = r.pathHash
+			ctx.URI().SetPathBytes(path)
 			break
 		}
 	}
@@ -74,31 +77,10 @@ func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fshandler func(*fa
 			}
 		}
 	} else if ctx.IsGet() {
-		NotFound(ctx)
+		fsHandler(ctx)
+	} else {
+		InvalidMethod(ctx)
 	}
-
-	/*if ctx.IsPost() {
-		path := ctx.Path()
-		pathHash := cityhash.Hash32(path)
-
-		routeID := -1
-
-		for i := 0; i <= len(postRoutes); i++ {
-			if pathHash == postRoutes[i].pathHash && bytes.Equal(path, postRoutes[i].path) {
-				routeID = i
-				break
-			}
-		}
-
-		if routeID >= 0 {
-			postRoutes[routeID].fn(ctx)
-			return
-		}
-
-		NotFound(ctx)
-	} else if ctx.IsGet() {
-		NotFound(ctx)
-	}*/
 }
 
 // HelloWorld is a hello world request handler
@@ -111,4 +93,12 @@ func HelloWorld(ctx *fasthttp.RequestCtx) {
 // NotFound is the resource not found 404 request handler
 func NotFound(ctx *fasthttp.RequestCtx) {
 	ctx.Error("Resource Not Found", fasthttp.StatusNotFound)
+}
+
+func InvalidMethod(ctx *fasthttp.RequestCtx) {
+	ctx.Error("Invalid HTTP Method", fasthttp.StatusBadRequest)
+}
+
+func SecurityError(ctx *fasthttp.RequestCtx) {
+	ctx.Error("Security Error Occured", fasthttp.StatusInternalServerError)
 }
