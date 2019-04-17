@@ -14,5 +14,5 @@ func main() {
 		NewAliasRoute([]byte("/index"), []byte("/index.html")),
 	}
 
-	fasthttp.ListenAndServe(":8080", NewPrimaryHandler(aliases, postHandlers, "./static/"))
+	fasthttp.ListenAndServe(":80", NewPrimaryHandler(aliases, postHandlers, "./static/"))
 }
