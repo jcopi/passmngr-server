@@ -57,6 +57,8 @@ func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*f
 
 // PrimaryHandler is the function that will handle every http request
 func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fsHandler func(*fasthttp.RequestCtx), ctx *fasthttp.RequestCtx) {
+	CommonHeaders(ctx)
+
 	path := ctx.Path()
 	pathHash := cityhash.Hash32(path)
 
@@ -83,6 +85,10 @@ func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fsHandler func(*fa
 	}
 }
 
+func CommonHeaders(ctx *fasthttp.RequestCtx) {
+	ctx.Response.Header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+}
+
 // HelloWorld is a hello world request handler
 func HelloWorld(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("text/plain")
@@ -101,4 +107,11 @@ func InvalidMethod(ctx *fasthttp.RequestCtx) {
 
 func SecurityError(ctx *fasthttp.RequestCtx) {
 	ctx.Error("Security Error Occured", fasthttp.StatusInternalServerError)
+}
+
+func RedirectToHttps(ctx *fasthttp.RequestCtx) {
+	CommonHeaders(ctx)
+	uri := ctx.URI()
+	uri.SetScheme("https")
+	ctx.Redirect(string(uri.FullURI()), fasthttp.StatusMovedPermanently)
 }
