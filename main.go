@@ -14,5 +14,6 @@ func main() {
 		NewAliasRoute([]byte("/index"), []byte("/index.html")),
 	}
 
-	fasthttp.ListenAndServe(":80", NewPrimaryHandler(aliases, postHandlers, "./static/"))
+	// fasthttp.ListenAndServe(":80", NewPrimaryHandler(aliases, postHandlers, "./static/"))
+	fasthttp.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", NewPrimaryHandler(aliases, postHandlers, "./static/"))
 }
