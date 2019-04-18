@@ -7,7 +7,7 @@ PIDFile=/tmp/passmnger-server.pid-4040
 User=root
 Group=root
 WorkingDirectory=/root/go/passmngr-server
-ExecStart=/root/go/passmngr-server/main
+ExecStart=/bin/bash -c "/root/go/passmngr-server/main"
 Restart=always
 
 [Install]
