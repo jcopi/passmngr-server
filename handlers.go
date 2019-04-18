@@ -87,6 +87,7 @@ func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fsHandler func(*fa
 
 func CommonHeaders(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+	ctx.Response.Header.Set("Content-language", "en")
 }
 
 // HelloWorld is a hello world request handler
