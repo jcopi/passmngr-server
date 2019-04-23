@@ -36,6 +36,9 @@ func NewAliasRoute(alias []byte, aliased []byte) AliasRoute {
 	return AliasRoute{alias, cityhash.Hash32(alias), aliased, cityhash.Hash32(aliased)}
 }
 
+// Middleware is a function that will run before the primary handler,
+// typically this will  modify the request before it reaches it's intended
+
 // NewPrimaryHandler returns a new request handler with the appropriate function signature
 func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*fasthttp.RequestCtx) {
 	fs := &fasthttp.FS{
@@ -95,6 +98,10 @@ func HelloWorld(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("text/plain")
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	ctx.SetBody([]byte("hello world."))
+}
+
+func SecureSocket(ctx *fasthttp.RequestCtx) {
+
 }
 
 // NotFound is the resource not found 404 request handler
