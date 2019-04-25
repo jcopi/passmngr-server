@@ -1,9 +1,54 @@
 package main
 
-import "bitbucket.org/creachadair/cityhash"
+import (
+	"bytes"
+
+	"bitbucket.org/creachadair/cityhash"
+)
+
+type Hashable interface {
+	Hash() uint32
+	Equal(Hashable) bool
+	AsBytes() []byte
+}
+
+type HashableByteSlice []byte
+type HashableUint64 uint64
+
+func (b HashableByteSlice) Hash() uint32 {
+	return cityhash.Hash32(b)
+}
+func (b HashableByteSlice) Equal(c Hashable) bool {
+	return bytes.Equal(b, c.AsBytes())
+}
+
+func (b HashableByteSlice) AsBytes() []byte {
+	return []byte(b)
+}
+
+func (u HashableUint64) Hash() uint32 {
+	return uint32(u ^ 9223372036854775783)
+}
+
+func (u HashableUint64) Equal(c Hashable) bool {
+	return bytes.Equal(u.AsBytes(), c.AsBytes())
+}
+
+func (u HashableUint64) AsBytes() []byte {
+	return []byte{
+		byte(u >> 56),
+		byte((u & 0x00FF000000000000) >> 48),
+		byte((u & 0x0000FF0000000000) >> 40),
+		byte((u & 0x000000FF00000000) >> 32),
+		byte((u & 0x00000000FF000000) >> 24),
+		byte((u & 0x0000000000FF0000) >> 16),
+		byte((u & 0x000000000000FF00) >> 8),
+		byte((u & 0x00000000000000FF)),
+	}
+}
 
 type HashmapNode struct {
-	Key   []byte
+	Key   Hashable
 	Value interface{}
 	dist  uint8
 	used  bool
@@ -65,7 +110,7 @@ func fastRange32(x uint32, n uint32) uint32 {
 func NewHashmap() Hashmap {
 	var hm Hashmap
 
-	hm.table = make([]HashmapNode, 0, hmInitSize)
+	hm.table = make([]HashmapNode, hmInitSize, hmInitSize)
 	hm.length = 0
 	hm.maxProbe = fastLog2(uint64(cap(hm.table)))
 
@@ -74,7 +119,7 @@ func NewHashmap() Hashmap {
 
 func (hm *Hashmap) grow() {
 	newCap := nextHashMapSize(cap(hm.table))
-	tmp := make([]HashmapNode, 0, newCap)
+	tmp := make([]HashmapNode, newCap, newCap)
 	hm.rehash(tmp)
 }
 
@@ -91,21 +136,113 @@ func (hm *Hashmap) rehash(newSlice []HashmapNode) {
 	}
 }
 
-func (hm *Hashmap) probe(hash uint32, key []byte, value interface{}, bool altSize) {
+func (hm *Hashmap) probe(hash uint32, key Hashable, value interface{}, altSize bool) {
 	idx := fastRange32(hash, uint32(cap(hm.table)))
-	i, j, spi, probeCount := idx, 0, idx, uint8(0)
+	i, j, spi, probeCount := idx, uint32(0), idx, uint8(0)
 	smallerProbe, found := false, false
 	for probeCount < hm.maxProbe && !found {
-		j = i
+		if j = i; i >= uint32(cap(hm.table)) {
+			j -= uint32(cap(hm.table))
+		}
+
+		if !smallerProbe && (hm.table[j].dist < probeCount || !hm.table[j].used) {
+			smallerProbe = true
+			spi = j
+		}
+
+		if key.Equal(hm.table[j].Key) {
+			found = true
+			spi = j
+			break
+		}
+
+		probeCount++
+		i++
+	}
+	if found {
+		hm.table[spi].Value = value
+	} else if !smallerProbe {
+		hm.grow()
+		hm.probe(hash, key, value, true)
+	} else {
+		if hm.table[spi].used {
+			newHash := hm.table[spi].Key.Hash()
+			newKey := hm.table[spi].Key
+			newValue := hm.table[spi].Value
+			hm.table[spi].Key = key
+			hm.table[spi].Value = value
+			hm.table[spi].dist = uint8(spi - idx)
+			if altSize {
+				hm.length++
+			}
+			hm.probe(newHash, newKey, newValue, false)
+		} else {
+			hm.table[spi].Key = key
+			hm.table[spi].Value = value
+			hm.table[spi].dist = uint8(spi - idx)
+			hm.table[spi].used = true
+			if altSize {
+				hm.length++
+			}
+		}
 	}
 }
 
-func (hm *Hashmap) Set(key []byte, val interface{}) {
+func (hm *Hashmap) Set(key Hashable, value interface{}) {
 	if float32(cap(hm.table))*hm.maxLoad > float32(hm.length+1) {
 		hm.grow()
-		hm.Set(key, val)
+		hm.Set(key, value)
 	} else {
-		hash := cityhash.Hash32(key)
+		hash := key.Hash()
 		hm.probe(hash, key, value, true)
 	}
+}
+
+func (hm *Hashmap) Delete(key Hashable) interface{} {
+	var value interface{}
+	hash := key.Hash()
+	i, j := fastRange32(hash, uint32(cap(hm.table))), uint32(0)
+	probeCount := uint8(0)
+
+	for probeCount < hm.maxProbe {
+		if j = i; j >= uint32(cap(hm.table)) {
+			j -= uint32(cap(hm.table))
+		}
+
+		if key.Equal(hm.table[j].Key) {
+			value = hm.table[j].Value
+			var tmp HashmapNode
+			hm.table[j] = tmp
+			hm.length--
+			break
+		}
+
+		i++
+		probeCount++
+	}
+
+	return value
+}
+
+func (hm *Hashmap) Get(key Hashable) interface{} {
+	var value interface{}
+	hash := key.Hash()
+	i, j := fastRange32(hash, uint32(cap(hm.table))), uint32(0)
+	probeCount := uint8(0)
+
+	for probeCount < hm.maxProbe {
+		if j = i; j >= uint32(cap(hm.table)) {
+			j -= uint32(cap(hm.table))
+		}
+
+		if key.Equal(hm.table[j].Key) {
+			value = hm.table[j].Value
+			break
+		}
+
+		i++
+		probeCount++
+	}
+
+	return value
 }

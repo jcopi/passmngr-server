@@ -6,6 +6,11 @@ import (
 )
 
 func main() {
+	hm := NewHashmap()
+	k := HashableByteSlice{0, 1, 2, 3, 4}
+	v := 72
+	hm.Set(k, v)
+
 	postHandlers := []Route{
 		{[]byte("helloworld"), cityhash.Hash32([]byte("helloworld")), HelloWorld},
 	}
