@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="css/index.css"/>
 </head>
 <body>
-
+    <script>
+        let ws = new WebSocket("ws://localhost/socket")
+        ws.addEventListener("open", function (ev) {
+            console.log("Socket Opened")
+            ws.send("Message Data")
+        });
+        ws.addEventListener("error", function (ev) {
+            console.log(ev)
+        })
+    </script>
 </body>
 </html>

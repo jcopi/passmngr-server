@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
+	"fmt"
 
-	"bitbucket.org/creachadair/cityhash"
+	"github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
 )
 
@@ -11,36 +11,62 @@ const (
 	period byte = byte('.')
 )
 
-// Route is the structure holding information and handlers for post routes
-type Route struct {
-	path     []byte
+type Route func(*fasthttp.RequestCtx)
+type Middleware func(*fasthttp.RequestCtx)
+type Alias struct {
+	path     HashableByteSlice
 	pathHash uint32
-	fn       func(*fasthttp.RequestCtx)
 }
 
-// NewRoute returns a new route structure
-func NewRoute(path []byte, fn func(*fasthttp.RequestCtx)) Route {
-	return Route{path, cityhash.Hash32(path), fn}
+// PrimaryHandler is the function that will handle every http request
+func PrimaryHandler(aliases Hashmap, middlewares Hashmap, postRoutes Hashmap, getRoutes Hashmap, fsHandler func(*fasthttp.RequestCtx), ctx *fasthttp.RequestCtx) {
+	path := HashableByteSlice(ctx.Path())
+	pathHash := path.Hash()
+
+	CommonHeaders(ctx)
+
+	if alias := aliases.GetPreHash(path, pathHash); alias != nil {
+		path = alias.(Alias).path
+		pathHash = alias.(Alias).pathHash
+		ctx.URI().SetPathBytes(path)
+	}
+
+	if middleware := middlewares.GetPreHash(path, pathHash); middleware != nil {
+		middleware.(Middleware)(ctx)
+	}
+
+	if ctx.IsPost() {
+		if postRoute := postRoutes.GetPreHash(path, pathHash); postRoute != nil {
+			postRoute.(Route)(ctx)
+		} else {
+			NotFound(ctx)
+		}
+	} else if ctx.IsGet() {
+		if getRoute := getRoutes.GetPreHash(path, pathHash); getRoute != nil {
+			getRoute.(Route)(ctx)
+		} else {
+			fsHandler(ctx)
+		}
+	} else {
+		InvalidMethod(ctx)
+	}
 }
 
-// AliasRoute is the structure holding information for a route alias
-type AliasRoute struct {
-	alias     []byte
-	aliasHash uint32
-	path      []byte
-	pathHash  uint32
+type RouteDefinition struct {
+	path  HashableByteSlice
+	route Route
 }
-
-// NewAliasRoute creates a new alias route struct
-func NewAliasRoute(alias []byte, aliased []byte) AliasRoute {
-	return AliasRoute{alias, cityhash.Hash32(alias), aliased, cityhash.Hash32(aliased)}
+type MiddlewareDefinition struct {
+	path       HashableByteSlice
+	middleware Middleware
 }
-
-// Middleware is a function that will run before the primary handler,
-// typically this will  modify the request before it reaches it's intended
+type AliasDefinition struct {
+	path      HashableByteSlice
+	aliasPath HashableByteSlice
+}
 
 // NewPrimaryHandler returns a new request handler with the appropriate function signature
-func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*fasthttp.RequestCtx) {
+func NewPrimaryHandler(aliases []AliasDefinition, middlewares []MiddlewareDefinition, posts []RouteDefinition, gets []RouteDefinition, root string) func(*fasthttp.RequestCtx) {
 	fs := &fasthttp.FS{
 		Root:                 root,
 		IndexNames:           []string{"index.html"},
@@ -53,40 +79,33 @@ func NewPrimaryHandler(aliases []AliasRoute, posts []Route, root string) func(*f
 
 	fsHandler := fs.NewRequestHandler()
 
+	aliasMap := NewHashmap()
+	middlewareMap := NewHashmap()
+	postMap := NewHashmap()
+	getMap := NewHashmap()
+
+	for _, a := range aliases {
+		aliasMap.Set(a.path, Alias{a.aliasPath, a.aliasPath.Hash()})
+	}
+
+	for _, m := range middlewares {
+		middlewareMap.Set(m.path, m.middleware)
+	}
+
+	for _, p := range posts {
+		postMap.Set(p.path, p.route)
+	}
+
+	for _, g := range gets {
+		getMap.Set(g.path, g.route)
+	}
+
 	return func(ctx *fasthttp.RequestCtx) {
-		PrimaryHandler(aliases, posts, fsHandler, ctx)
+		PrimaryHandler(aliasMap, middlewareMap, postMap, getMap, fsHandler, ctx)
 	}
 }
 
 // PrimaryHandler is the function that will handle every http request
-func PrimaryHandler(aliases []AliasRoute, postRoutes []Route, fsHandler func(*fasthttp.RequestCtx), ctx *fasthttp.RequestCtx) {
-	CommonHeaders(ctx)
-
-	path := ctx.Path()
-	pathHash := cityhash.Hash32(path)
-
-	for _, r := range aliases {
-		if r.aliasHash == pathHash && bytes.Equal(r.alias, path) {
-			path = r.path
-			pathHash = r.pathHash
-			ctx.URI().SetPathBytes(path)
-			break
-		}
-	}
-
-	if ctx.IsPost() {
-		for _, r := range postRoutes {
-			if r.pathHash == pathHash && bytes.Equal(r.path, path) {
-				r.fn(ctx)
-				break
-			}
-		}
-	} else if ctx.IsGet() {
-		fsHandler(ctx)
-	} else {
-		InvalidMethod(ctx)
-	}
-}
 
 func CommonHeaders(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
@@ -100,13 +119,39 @@ func HelloWorld(ctx *fasthttp.RequestCtx) {
 	ctx.SetBody([]byte("hello world."))
 }
 
-func SecureSocket(ctx *fasthttp.RequestCtx) {
+func SecureSocket(ws *websocket.Conn) {
+	defer ws.Close()
 
+	for {
+		mt, message, err := ws.ReadMessage()
+		if err != nil {
+			break
+		}
+
+		fmt.Printf("Received Message [%v] '%v'\n", mt, string(message))
+	}
+}
+
+func SocketUpgrader(upgrader websocket.FastHTTPUpgrader, ctx *fasthttp.RequestCtx) {
+	err := upgrader.Upgrade(ctx, SecureSocket)
+	if err != nil {
+		InternalError(ctx)
+	}
+}
+
+func NewSocketUpgrader(upgrader websocket.FastHTTPUpgrader) func(*fasthttp.RequestCtx) {
+	return func(ctx *fasthttp.RequestCtx) {
+		SocketUpgrader(upgrader, ctx)
+	}
 }
 
 // NotFound is the resource not found 404 request handler
 func NotFound(ctx *fasthttp.RequestCtx) {
 	ctx.Error("Resource Not Found", fasthttp.StatusNotFound)
+}
+
+func InternalError(ctx *fasthttp.RequestCtx) {
+	ctx.Error("Internal Error Occured", fasthttp.StatusInternalServerError)
 }
 
 func InvalidMethod(ctx *fasthttp.RequestCtx) {

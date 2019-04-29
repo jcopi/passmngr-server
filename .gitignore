@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# Compressed files
+*.compress
+
 # Test binary, build with `go test -c`
 *.test
 

@@ -1,24 +1,32 @@
 package main
 
 import (
-	"bitbucket.org/creachadair/cityhash"
+	"github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
 )
 
 func main() {
-	hm := NewHashmap()
-	k := HashableByteSlice{0, 1, 2, 3, 4}
-	v := 72
-	hm.Set(k, v)
+	aliases := []AliasDefinition{
+		{HashableByteSlice("/index"), HashableByteSlice("/index.html")},
+		{HashableByteSlice("index"), HashableByteSlice("index.html")},
+	}
+	middlewares := []MiddlewareDefinition{}
 
-	postHandlers := []Route{
-		{[]byte("helloworld"), cityhash.Hash32([]byte("helloworld")), HelloWorld},
+	upgrader := websocket.FastHTTPUpgrader{
+		EnableCompression: true,
 	}
 
-	aliases := []AliasRoute{
-		NewAliasRoute([]byte("/index"), []byte("/index.html")),
+	posts := []RouteDefinition{
+		{HashableByteSlice("/helloword"), HelloWorld},
+		{HashableByteSlice("/socket"), NewSocketUpgrader(upgrader)},
+	}
+	gets := []RouteDefinition{
+		{HashableByteSlice("/socket"), NewSocketUpgrader(upgrader)},
 	}
 
 	go fasthttp.ListenAndServe(":80", RedirectToHttps)
-	fasthttp.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", NewPrimaryHandler(aliases, postHandlers, "./static/"))
+	fasthttp.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", NewPrimaryHandler(aliases, middlewares, posts, gets, "./static/"))
+
+	// DEBUG
+	// fasthttp.ListenAndServe(":80", NewPrimaryHandler(aliases, middlewares, posts, gets, "./static/"))
 }

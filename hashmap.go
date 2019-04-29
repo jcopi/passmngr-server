@@ -19,7 +19,12 @@ func (b HashableByteSlice) Hash() uint32 {
 	return cityhash.Hash32(b)
 }
 func (b HashableByteSlice) Equal(c Hashable) bool {
-	return bytes.Equal(b, c.AsBytes())
+	if b == nil && c == nil {
+		return true
+	} else if b == nil || c == nil {
+		return false
+	}
+	return bytes.Equal(b.AsBytes(), c.AsBytes())
 }
 
 func (b HashableByteSlice) AsBytes() []byte {
@@ -55,10 +60,11 @@ type HashmapNode struct {
 }
 
 type Hashmap struct {
-	table    []HashmapNode
-	length   uint32
-	maxLoad  float32
-	maxProbe uint8
+	table       []HashmapNode
+	length      uint32
+	maxLoad     float32
+	maxProbe    uint8
+	MaxCapacity int
 }
 
 const (
@@ -113,14 +119,21 @@ func NewHashmap() Hashmap {
 	hm.table = make([]HashmapNode, hmInitSize, hmInitSize)
 	hm.length = 0
 	hm.maxProbe = fastLog2(uint64(cap(hm.table)))
+	hm.MaxCapacity = -1
 
 	return hm
 }
 
-func (hm *Hashmap) grow() {
+func (hm *Hashmap) grow() bool {
+	if hm.MaxCapacity >= 0 && cap(hm.table) >= hm.MaxCapacity {
+		// Can't grow, at max size
+		return false
+	}
 	newCap := nextHashMapSize(cap(hm.table))
 	tmp := make([]HashmapNode, newCap, newCap)
 	hm.rehash(tmp)
+
+	return true
 }
 
 func (hm *Hashmap) rehash(newSlice []HashmapNode) {
@@ -136,7 +149,7 @@ func (hm *Hashmap) rehash(newSlice []HashmapNode) {
 	}
 }
 
-func (hm *Hashmap) probe(hash uint32, key Hashable, value interface{}, altSize bool) {
+func (hm *Hashmap) probe(hash uint32, key Hashable, value interface{}, altSize bool) bool {
 	idx := fastRange32(hash, uint32(cap(hm.table)))
 	i, j, spi, probeCount := idx, uint32(0), idx, uint8(0)
 	smallerProbe, found := false, false
@@ -162,7 +175,9 @@ func (hm *Hashmap) probe(hash uint32, key Hashable, value interface{}, altSize b
 	if found {
 		hm.table[spi].Value = value
 	} else if !smallerProbe {
-		hm.grow()
+		if !hm.grow() {
+			return false
+		}
 		hm.probe(hash, key, value, true)
 	} else {
 		if hm.table[spi].used {
@@ -186,20 +201,27 @@ func (hm *Hashmap) probe(hash uint32, key Hashable, value interface{}, altSize b
 			}
 		}
 	}
+
+	return true
 }
 
-func (hm *Hashmap) Set(key Hashable, value interface{}) {
+func (hm *Hashmap) Set(key Hashable, value interface{}) bool {
 	if float32(cap(hm.table))*hm.maxLoad > float32(hm.length+1) {
-		hm.grow()
+		if !hm.grow() {
+			return false
+		}
 		hm.Set(key, value)
 	} else {
 		hash := key.Hash()
-		hm.probe(hash, key, value, true)
+		if !hm.probe(hash, key, value, true) {
+			return false
+		}
 	}
+
+	return true
 }
 
-func (hm *Hashmap) Delete(key Hashable) interface{} {
-	var value interface{}
+func (hm *Hashmap) Delete(key Hashable) (ok bool, value interface{}) {
 	hash := key.Hash()
 	i, j := fastRange32(hash, uint32(cap(hm.table))), uint32(0)
 	probeCount := uint8(0)
@@ -214,6 +236,30 @@ func (hm *Hashmap) Delete(key Hashable) interface{} {
 			var tmp HashmapNode
 			hm.table[j] = tmp
 			hm.length--
+			ok = true
+			break
+		}
+
+		i++
+		probeCount++
+	}
+
+	return
+}
+
+func (hm *Hashmap) Get(key Hashable) interface{} {
+	var value interface{}
+	hash := key.Hash()
+	i, j := fastRange32(hash, uint32(cap(hm.table))), uint32(0)
+	probeCount := uint8(0)
+
+	for probeCount < hm.maxProbe {
+		if j = i; j >= uint32(cap(hm.table)) {
+			j -= uint32(cap(hm.table))
+		}
+
+		if key.Equal(hm.table[j].Key) {
+			value = hm.table[j].Value
 			break
 		}
 
@@ -224,9 +270,8 @@ func (hm *Hashmap) Delete(key Hashable) interface{} {
 	return value
 }
 
-func (hm *Hashmap) Get(key Hashable) interface{} {
+func (hm *Hashmap) GetPreHash(key Hashable, hash uint32) interface{} {
 	var value interface{}
-	hash := key.Hash()
 	i, j := fastRange32(hash, uint32(cap(hm.table))), uint32(0)
 	probeCount := uint8(0)
 
