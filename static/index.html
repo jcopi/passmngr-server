@@ -9,7 +9,7 @@
 </head>
 <body>
     <script>
-        let ws = new WebSocket("ws://localhost/socket")
+        let ws = new WebSocket("wss://" + window.location.host + "/socket")
         ws.addEventListener("open", function (ev) {
             console.log("Socket Opened")
             ws.send("Message Data")
