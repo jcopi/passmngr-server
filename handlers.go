@@ -122,6 +122,12 @@ func HelloWorld(ctx *fasthttp.RequestCtx) {
 func SecureSocket(ws *websocket.Conn) {
 	defer ws.Close()
 
+	// The first message should be assumed to be a ECDH Handshake
+	// If ecdh variables above are nil and the message is not a valid ECDH handshake
+	// the socket is closed.
+
+	// Each new message will include an ecdh handshake and
+	// will update the above encryption variables
 	for {
 		mt, message, err := ws.ReadMessage()
 		if err != nil {
