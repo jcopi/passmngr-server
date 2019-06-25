@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 
-	"bitbucket.org/creachadair/cityhash"
+	"github.com/creachadair/cityhash"
 )
 
 type Hashable interface {
