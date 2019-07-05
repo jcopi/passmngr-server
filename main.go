@@ -1,32 +1,31 @@
 package main
 
 import (
-	"github.com/fasthttp/websocket"
-	"github.com/valyala/fasthttp"
+	"log"
+	"net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 func main() {
-	aliases := []AliasDefinition{
-		{HashableByteSlice("/index"), HashableByteSlice("/index.html")},
-		{HashableByteSlice("index"), HashableByteSlice("index.html")},
-	}
-	middlewares := []MiddlewareDefinition{}
-
-	upgrader := websocket.FastHTTPUpgrader{
+	upgrader := websocket.Upgrader{
 		EnableCompression: true,
 	}
 
-	posts := []RouteDefinition{
-		{HashableByteSlice("/helloword"), HelloWorld},
-		{HashableByteSlice("/socket"), NewSocketUpgrader(upgrader)},
-	}
-	gets := []RouteDefinition{
-		{HashableByteSlice("/socket"), NewSocketUpgrader(upgrader)},
-	}
+	mux := http.NewServeMux()
 
-	go fasthttp.ListenAndServe(":80", RedirectToHttps)
-	fasthttp.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", NewPrimaryHandler(aliases, middlewares, posts, gets, "./static/"))
+	mux.HandleFunc("/socket", NewSocketUpgrader(upgrader))
+	mux.Handle("/", http.FileServer(http.Dir("./static/")))
+
+	umux := http.NewServeMux()
+
+	umux.HandleFunc("/", RedirectToHttps)
 
 	// DEBUG
-	// fasthttp.ListenAndServe(":80", NewPrimaryHandler(aliases, middlewares, posts, gets, "./static/"))
+	// go http.ListenAndServe(":80", umux)
+	// log.Fatal(http.ListenAndServeTLS(":443", "./localhost.crt", "./localhost.key", mux))
+
+	// PRODUCTION
+	go http.ListenAndServe(":80", umux)
+	log.Fatal(http.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", mux))
 }
