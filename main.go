@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
 
@@ -21,11 +22,29 @@ func main() {
 
 	umux.Handle("/", ApplyMiddleWare(http.HandlerFunc(RedirectToHttps), CommonHeaders))
 
-	// DEBUG
-	//go http.ListenAndServe(":80", umux)
-	//log.Fatal(http.ListenAndServeTLS(":443", "./localhost.crt", "./localhost.key", mux))
-
+	allowableCipherSuites := []uint16{
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	}
 	// PRODUCTION
+	server := http.Server{
+		Addr:    ":443",
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			CipherSuites: allowableCipherSuites,
+		},
+	}
+
 	go http.ListenAndServe(":80", umux)
-	log.Fatal(http.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", mux))
+
+	// Production Certificates
+	//log.Fatal(server.ListenAndServeTLS("/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem"))
+
+	// Debug Certificates
+	log.Fatal(server.ListenAndServeTLS("localhost.crt", "localhost.key"))
 }
