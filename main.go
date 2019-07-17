@@ -22,10 +22,10 @@ func main() {
 	umux.Handle("/", ApplyMiddleWare(http.HandlerFunc(RedirectToHttps), CommonHeaders))
 
 	// DEBUG
-	go http.ListenAndServe(":80", umux)
-	log.Fatal(http.ListenAndServeTLS(":443", "./localhost.crt", "./localhost.key", mux))
+	//go http.ListenAndServe(":80", umux)
+	//log.Fatal(http.ListenAndServeTLS(":443", "./localhost.crt", "./localhost.key", mux))
 
 	// PRODUCTION
-	//go http.ListenAndServe(":80", umux)
-	//log.Fatal(http.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", mux))
+	go http.ListenAndServe(":80", umux)
+	log.Fatal(http.ListenAndServeTLS(":443", "/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem", mux))
 }
