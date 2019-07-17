@@ -21,8 +21,10 @@ func ApplyMiddleWare(handler http.Handler, middle func(http.ResponseWriter, *htt
 
 func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'; default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; font-src 'self'; form-action 'self'")
 	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-language", "en")
 }
