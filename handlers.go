@@ -11,8 +11,19 @@ const (
 	period byte = byte('.')
 )
 
+// ApplyMiddleWare returns an http Handler that calls the middleware the the handler on the request
+func ApplyMiddleWare(handler http.Handler, middle func(http.ResponseWriter, *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middle(w, r)
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-language", "en")
 }
 
