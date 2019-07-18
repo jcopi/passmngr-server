@@ -43,8 +43,8 @@ func main() {
 	go http.ListenAndServe(":80", umux)
 
 	// Production Certificates
-	//log.Fatal(server.ListenAndServeTLS("/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem"))
+	log.Fatal(server.ListenAndServeTLS("/etc/letsencrypt/live/www.passmngr.io/fullchain.pem", "/etc/letsencrypt/live/www.passmngr.io/privkey.pem"))
 
 	// Debug Certificates
-	log.Fatal(server.ListenAndServeTLS("localhost.crt", "localhost.key"))
+	//log.Fatal(server.ListenAndServeTLS("localhost.crt", "localhost.key"))
 }
