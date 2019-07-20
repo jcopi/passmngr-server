@@ -4,11 +4,14 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 )
 
 func main() {
+	os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
+
 	upgrader := websocket.Upgrader{
 		EnableCompression: true,
 	}
