@@ -12,6 +12,8 @@ import (
 func main() {
 	os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
 
+	cache := new(map[string][]Session)
+
 	upgrader := websocket.Upgrader{
 		EnableCompression: true,
 	}

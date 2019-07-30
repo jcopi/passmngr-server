@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -10,6 +12,24 @@ import (
 const (
 	period byte = byte('.')
 )
+
+type data struct {
+	message   string `json:"message"`
+	signature string `json:"signature"`
+}
+
+type fm struct {
+	pubKey    string `json:"pubkey"`
+	signature string `json:"signature"`
+	id        string `json:"id"`
+}
+
+type Session struct {
+	Socket   *websocket.Conn
+	DataChan chan ([]byte)
+	ID       string
+	Key      ecdsa.PublicKey
+}
 
 // ApplyMiddleWare returns an http Handler that calls the middleware the the handler on the request
 func ApplyMiddleWare(handler http.Handler, middle func(http.ResponseWriter, *http.Request)) http.Handler {
@@ -32,12 +52,39 @@ func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 func Socket(ws *websocket.Conn) {
 	defer ws.Close()
 
+	var md fm
+	_, m, err := ws.ReadMessage()
+	fmErr := json.Unmarshal(m, &md)
+
+	if valid := ecdsa.Verify(); !valid {
+		return
+	}
+
+	ns := Session{
+		Socket:   ws,
+		DataChan: make(chan []byte),
+		ID:       md.id,
+		Key:      md.pubKey,
+	}
+
 	// Websocket echo server
 	for {
 		mt, message, err := ws.ReadMessage()
 		if err != nil {
 			break
 		}
+		var msg data
+		if jsonErr := json.Unmarshal(message, &msg); jsonErr != nil {
+			break
+		}
+
+		// validate key
+		// store id
+		// connect to other peers
+
+		// validate key
+		// write message to channel
+
 		err = ws.WriteMessage(mt, message)
 		if err != nil {
 			break
@@ -89,4 +136,8 @@ func RedirectToHttps(w http.ResponseWriter, r *http.Request) {
 	}
 	r.URL.Scheme = "https"
 	http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+}
+
+func validateSignature(key string, signature string) error {
+	return nil
 }

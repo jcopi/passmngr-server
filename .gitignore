@@ -17,3 +17,6 @@
 # Visual Studio Code settings files
 .vscode
 .vscode/*
+localhost.crt
+localhost.key
+passmngr-server
