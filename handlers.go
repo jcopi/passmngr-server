@@ -19,6 +19,7 @@ func ApplyMiddleWare(handler http.Handler, middle func(http.ResponseWriter, *htt
 	})
 }
 
+// CommonHeaders writes standard headers to the provided http.ResponseWriter
 func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 	w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'; default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; font-src 'self'; form-action 'self'; connect-src wss://*.passmngr.com/socket wss://*.passmngr.io/socket wss://passmngr.com/socket wss://passmngr.io/socket")
@@ -29,6 +30,8 @@ func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-language", "en")
 }
 
+// Socket handles websocket connections.
+// When this function returns, the websocket connection that it is handling is closed
 func Socket(ws *websocket.Conn) {
 	defer ws.Close()
 
@@ -47,6 +50,7 @@ func Socket(ws *websocket.Conn) {
 	}
 }
 
+// SocketUpgrader upgrades an http request to a websocket connection
 func SocketUpgrader(upgrader websocket.Upgrader, w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -55,33 +59,40 @@ func SocketUpgrader(upgrader websocket.Upgrader, w http.ResponseWriter, r *http.
 	Socket(ws)
 }
 
+
 func NewSocketUpgrader(upgrader websocket.Upgrader) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		SocketUpgrader(upgrader, w, r)
 	}
 }
 
+// NotFound is a handler function for http not found errors (404)
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Resource Not Found"))
 }
 
+// InternalError is a handler function for http internal errors (500)
 func InternalError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write([]byte("Internal Error Occured"))
 }
 
+// InvalidMethod is a handler function for http invalid method errors (400)
 func InvalidMethod(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("Invalid HTTP Method"))
 }
 
+// SecurityError is a handler function for security errors.
+// To avoid providing an unintentional oracle this method should be generic.
 func SecurityError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write([]byte("Security Error Occured"))
 }
 
-func RedirectToHttps(w http.ResponseWriter, r *http.Request) {
+// RedirectToHTTPS rediects http requests to the equivalent https resource
+func RedirectToHTTPS(w http.ResponseWriter, r *http.Request) {
 	CommonHeaders(w, r)
 	fmt.Println(r.Header)
 	if r.URL.Host == "" {
