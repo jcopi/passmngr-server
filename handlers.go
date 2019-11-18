@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -17,6 +18,25 @@ func ApplyMiddleWare(handler http.Handler, middle func(http.ResponseWriter, *htt
 		middle(w, r)
 		handler.ServeHTTP(w, r)
 	})
+}
+
+// CountRequests increments the integer at the provided address, if there is no present DNT header
+func CountRequests(count *uint64, w http.ResponseWriter, r *http.Request) {
+	// If a request is made with a DNT header it should not be counted
+	dntHeaders := r.Header[http.CanonicalHeaderKey("DNT")]
+	for _, header := range dntHeaders {
+		if strings.ContainsRune(header, '1') {
+			return	
+		}
+	}
+	
+	atomic.AddUint64(count, uint64(1))
+}
+
+func NewCountRequests(count *uint64) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		CountRequests(count, w, r)	
+	}
 }
 
 // CommonHeaders writes standard headers to the provided http.ResponseWriter
