@@ -20,7 +20,7 @@ func main() {
 
 	mux.Handle("/socket", ApplyMiddleWare(http.HandlerFunc(NewSocketUpgrader(upgrader)), CommonHeaders))
 	mux.Handle("/.well-known/matrix/server", ApplyMiddleWare(http.HandlerFunc(MatrixWellKnownServer), CommonHeaders))
-	mux.Handle("/.well-known/matrix/client", ApplyMiddleWare(http.HandlerFunc(MatrixWellKnownServer), CommonHeaders))
+	mux.Handle("/.well-known/matrix/client", ApplyMiddleWare(http.HandlerFunc(MatrixWellKnownClient), CommonHeaders))
 	mux.Handle("/", ApplyMiddleWare(http.FileServer(http.Dir("./static/")), CommonHeaders))
 
 	umux := http.NewServeMux()
