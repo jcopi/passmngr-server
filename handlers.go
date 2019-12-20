@@ -93,7 +93,7 @@ func MatrixWellKnownServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func MatrixWellKnownClient(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow_Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("{\"m.homeserver\": {\"base_url\": \"https://passmngr.modular.im\"},\"m.identity_server\": {\"base_url\": \"https://vector.im\"}}"))
 }
