@@ -51,10 +51,6 @@ func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-language", "en")
 }
 
-func CORSHeaders(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")	
-}
-
 // Socket handles websocket connections.
 // When this function returns, the websocket connection that it is handling is closed
 func Socket(ws *websocket.Conn) {
@@ -89,6 +85,17 @@ func NewSocketUpgrader(upgrader websocket.Upgrader) func(w http.ResponseWriter, 
 	return func(w http.ResponseWriter, r *http.Request) {
 		SocketUpgrader(upgrader, w, r)
 	}
+}
+
+func MatrixWellKnownServer(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeaders(http.StatusOK)
+	w.Write([]byte("{\"m.server\": \"passmngr.modular.im:443\"}"))
+}
+
+func MatrixWellKnownClient(w http.ResponseWriter, r *http.Request) {
+	w.Headers().Set("Access-Control-Allow_Origin", "*")
+	w.WriteHeaders(http.StatusOK)
+	w.Write([]byte("{\"m.homeserver\": {\"base_url\": \"https://passmngr.modular.im\"},\"m.identity_server\": {\"base_url\": \"https://vector.im\"}}"))
 }
 
 // NotFound is a handler function for http not found errors (404)
