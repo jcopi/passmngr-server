@@ -88,13 +88,13 @@ func NewSocketUpgrader(upgrader websocket.Upgrader) func(w http.ResponseWriter, 
 }
 
 func MatrixWellKnownServer(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeaders(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("{\"m.server\": \"passmngr.modular.im:443\"}"))
 }
 
 func MatrixWellKnownClient(w http.ResponseWriter, r *http.Request) {
 	w.Headers().Set("Access-Control-Allow_Origin", "*")
-	w.WriteHeaders(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("{\"m.homeserver\": {\"base_url\": \"https://passmngr.modular.im\"},\"m.identity_server\": {\"base_url\": \"https://vector.im\"}}"))
 }
 
