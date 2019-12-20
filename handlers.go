@@ -51,6 +51,10 @@ func CommonHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-language", "en")
 }
 
+func CORSHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")	
+}
+
 // Socket handles websocket connections.
 // When this function returns, the websocket connection that it is handling is closed
 func Socket(ws *websocket.Conn) {
