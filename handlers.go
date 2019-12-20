@@ -1,7 +1,7 @@
 package main
 
 import (
-	"atomic"
+	"sync/atomic"
 	"fmt"
 	"net/http"
 	"strings"
